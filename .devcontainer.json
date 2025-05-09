@@ -5,7 +5,8 @@
     "ghcr.io/devcontainers/features/node:1": {},
     "ghcr.io/devcontainers/features/docker-in-docker:1": {}
   },
-  "postCreateCommand": "pip install fastapi uvicorn[standard] && npm install",
+  "postCreateCommand": "pip install --no-cache-dir -r backend/requirements.txt && npm install",
   "forwardPorts": [3000, 8000],
   "workspaceFolder": "/workspace"
 }
+
