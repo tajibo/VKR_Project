@@ -1,2 +1,3 @@
 fastapi
 uvicorn
+pip install --save-dev pre-commit black isort flake8
