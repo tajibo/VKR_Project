@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+scikit-learn
+joblib
+uvloop
+watchfiles
+python-multipart
+pandas
+datasets
+transformers
+evaluate
+torch
+numpy
+
