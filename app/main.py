@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import os
 import sys
 
@@ -37,4 +38,13 @@ app.add_middleware(
 @app.get("/")
 def read_root() -> dict[str, str]:
     """Корневой эндпоинт возвращает приветственное сообщение."""
+=======
+from fastapi import FastAPI
+
+app = FastAPI()
+
+
+@app.get("/hello")
+def read_root():
+>>>>>>> 7e09f28523bfd9d98f5087686d0407206abdcbfa
     return {"message": "Hello, World!"}

@@ -1,0 +1,12 @@
+{
+  "name": "NLP AI assistant",
+  "image": "mcr.microsoft.com/vscode/devcontainers/python:3.10",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:1": {}
+  },
+  "postCreateCommand": "pip install --no-cache-dir -r backend/requirements.txt && npm install",
+  "forwardPorts": [3000, 8000],
+  "workspaceFolder": "/workspace"
+}
+
