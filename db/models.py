@@ -2,8 +2,7 @@ from sqlalchemy import (
     Column, Integer, String, Boolean, DateTime, ForeignKey, Text, func
 )
 from sqlalchemy.orm import relationship
-from db.database import Base
-
+from .database import Base
 
 class Role(Base):
     __tablename__ = "roles"
@@ -35,9 +34,9 @@ class UserSetting(Base):
     __tablename__ = "user_settings"
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True)
-    pomodoro_duration = Column(Integer, default=25)
-    break_duration = Column(Integer, default=5)
-    notifications_enabled = Column(Boolean, default=True)
+    pomodoro_duration = Column(Integer, default=25)      # длительность работы (минуты)
+    break_duration = Column(Integer, default=5)          # длительность перерыва (минуты)
+    notifications_enabled = Column(Boolean, default=True)  # уведомления включены/выключены
 
     user = relationship("User", back_populates="settings")
 
@@ -46,9 +45,9 @@ class PomodoroSession(Base):
     __tablename__ = "pomodoro_sessions"
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"))
-    start_time = Column(DateTime(timezone=True))
-    end_time = Column(DateTime(timezone=True))
-    status = Column(String(20))  # start, pause, stop, complete
+    start_time = Column(DateTime(timezone=True), server_default=func.now())
+    end_time = Column(DateTime(timezone=True), nullable=True)
+    status = Column(String(20))  # "start", "paused", "stopped", "complete"
 
     user = relationship("User", back_populates="pomodoros")
 
