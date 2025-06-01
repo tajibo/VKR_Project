@@ -1,20 +1,25 @@
 # Игнорировать виртуальное окружение
 .venv/
 
-# Python bytecode
+# Python байткод
 __pycache__/
 *.py[cod]
 *.pyo
 .pyc
-# IDE-config
+
+# IDE-конфигурации
 .vscode/
 .idea/
+
 # Игнорируем файл с токеном
 .env
-# Логи, временные файлы и кеши
+
+# Логи, временные файлы и кеш
 *.log
 *.sqlite3
-.env
 
 # MacOS
 .DS_Store
+
+# Папка для загрузок
+uploads/

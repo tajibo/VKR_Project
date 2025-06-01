@@ -16,13 +16,11 @@ device: torch.device = None
 async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Обрабатывает любое текстовое сообщение (не команду).
-    Использует дообученную модель ruDialoGPT, загруженную из Hugging Face Hub.
+    Использует дообученную модель ruDialoGPT.
     """
     user_text = update.message.text.strip()
-    # Формируем промпт в том же формате, что при обучении:
     prompt = f"<User>: {user_text}\n<Bot>:"
 
-    # Токенизируем, усечём до 256 токенов (если слишком длинно)
     inputs = tokenizer(
         prompt,
         return_tensors="pt",
@@ -32,7 +30,6 @@ async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     input_ids = inputs["input_ids"].to(device)
     attention_mask = inputs["attention_mask"].to(device)
 
-    # Генерируем ответ
     output_ids = model.generate(
         input_ids=input_ids,
         attention_mask=attention_mask,
@@ -43,7 +40,6 @@ async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
 
     decoded = tokenizer.decode(output_ids[0], skip_special_tokens=True)
-    # Обрезаем всё до (и включая) "<Bot>:" и берём только ответ
     if "<Bot>:" in decoded:
         bot_answer = decoded.split("<Bot>:")[-1].strip()
     else:
