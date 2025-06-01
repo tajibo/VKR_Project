@@ -8,12 +8,15 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Text,
-    func
+    Float,
+    func,
 )
 from sqlalchemy.orm import relationship
 
-from db.database import Base  # <-- Импортируем Base из database.py
+from db.database import Base
 
+
+# === 1. Существующие модели ===
 
 class Role(Base):
     __tablename__ = "roles"
@@ -43,15 +46,28 @@ class User(Base):
     deadlines = relationship("Deadline", back_populates="user")
     files = relationship("File", back_populates="user")
 
+    # Новые связи к статистическим таблицам:
+    activity = relationship("UserActivity", back_populates="user")
+    error_logs = relationship("ErrorLog", back_populates="user")
+    feedbacks = relationship("UserFeedback", back_populates="user")
+
 
 class UserSetting(Base):
     __tablename__ = "user_settings"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
-    pomodoro_duration = Column(Integer, default=25)      # длительность работы (минуты)
-    break_duration = Column(Integer, default=5)          # длительность перерыва (минуты)
-    notifications_enabled = Column(Boolean, default=True)  # уведомления включены/выключены
+
+    # legacy-поля Pomodoro (можно оставить, но они не используются в новой логике)
+    pomodoro_duration = Column(Integer, default=25)
+    break_duration = Column(Integer, default=5)
+    notifications_enabled = Column(Boolean, default=True)
+
+    # Новые поля для NLP-ассистента:
+    preferred_language = Column(String(2), default="ru", nullable=False)       # “ru” или “en”
+    default_summary_length = Column(Integer, default=3, nullable=False)         # сколько предложений выдавать
+    deadline_notifications = Column(Boolean, default=True, nullable=False)      # уведомления о дедлайнах
+    flashcard_notifications = Column(Boolean, default=True, nullable=False)     # уведомления о карточках
 
     user = relationship("User", back_populates="settings")
 
@@ -63,7 +79,7 @@ class PomodoroSession(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     start_time = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     end_time = Column(DateTime(timezone=True), nullable=True)
-    status = Column(String(20), nullable=False)  # "start", "paused", "stopped", "complete"
+    status = Column(String(20), nullable=False)
 
     user = relationship("User", back_populates="pomodoros")
 
@@ -149,3 +165,84 @@ class File(Base):
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     user = relationship("User", back_populates="files")
+
+
+# === 2. Новые таблицы для статистики и логов ===
+
+class UserActivity(Base):
+    """
+    Сохраняет каждый пользовательский запрос:
+     - дату/время
+     - текст запроса
+     - определённый intent (если есть)
+     - имя хендлера, который обработал этот запрос
+     - время ответа (в миллисекундах)
+    """
+    __tablename__ = "user_activity"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    query_text = Column(Text, nullable=True)
+    intent_label = Column(String(100), nullable=True)
+    handler_name = Column(String(100), nullable=True)
+    response_time_ms = Column(Integer, nullable=True)
+
+    user = relationship("User", back_populates="activity")
+
+
+class ModelMetrics(Base):
+    """
+    Хранит метрики качества модели после её обучения или валидации.
+     - model_name: строка, например 'intent_classifier_v1'
+     - metric_date: дата, когда модель была проверена
+     - accuracy, f1_score, precision, recall
+     - notes: дополнительная информация (набор фич, версионирование и т.п.)
+    """
+    __tablename__ = "model_metrics"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    model_name = Column(String(100), nullable=False)
+    metric_date = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    accuracy = Column(Float, nullable=True)
+    f1_score = Column(Float, nullable=True)
+    precision = Column(Float, nullable=True)
+    recall = Column(Float, nullable=True)
+    notes = Column(Text, nullable=True)
+
+
+class ErrorLog(Base):
+    """
+    Сохраняет информацию об исключениях (errors) внутри бота:
+     - handler_name: в каком хендлере/модуле ошибка произошла
+     - error_text: текст исключения
+     - timestamp: время возникновения
+    """
+    __tablename__ = "error_log"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    handler_name = Column(String(100), nullable=True)
+    error_text = Column(Text, nullable=False)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    user = relationship("User", back_populates="error_logs")
+
+
+class UserFeedback(Base):
+    """
+    Хранит обратную связь от пользователей: рейтинг (1–5 или 0/1), комментарий и пр.
+     - query_text: текст исходного запроса
+     - rating: оценка (например, 1–5 или 0/1)
+     - comment: опциональный комментарий от пользователя
+    """
+    __tablename__ = "user_feedback"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    query_text = Column(Text, nullable=True)
+    rating = Column(Integer, nullable=False)  # от 0/1 (лайк/дизлайк) или 1–5
+    comment = Column(Text, nullable=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    user = relationship("User", back_populates="feedbacks")
