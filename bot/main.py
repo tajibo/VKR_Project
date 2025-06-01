@@ -1,6 +1,8 @@
 # bot/main.py
 
 import logging
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
 from telegram import BotCommand, Update
 from telegram.ext import (
@@ -8,6 +10,8 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     CallbackQueryHandler,
+    MessageHandler,
+    filters,
 )
 
 from db.database import SessionLocal, engine, Base
@@ -24,6 +28,9 @@ from bot.handlers.topics import topics_handler
 from bot.handlers.extract_deadlines import extract_deadlines_handler
 from bot.handlers.generate_questions import generate_questions_handler
 from bot.handlers.files import upload_handler, list_files_handler, download_file_handler
+
+# Импорт нового модуля chat
+import bot.handlers.chat as chat
 
 from bot.handlers.utils import log_activity
 
@@ -153,9 +160,34 @@ def main():
         logger.error("Токен не задан.")
         return
 
+    # ---------------- Инициализация приложения ----------------
     application = ApplicationBuilder().token(TOKEN).build()
 
-    # 1) Команды /start и /help
+    # ---------------- ПОДГРУЗКА ДОOБУЧЕННОЙ МОДЕЛИ ИЗ HUGGING FACE HUB ----------------
+    # Замените <ваш_username> на ваш реальный никнейм на Hugging Face
+    MODEL_REPO = "ваш_username/ruDialoGPT-finetuned"
+
+    # Загружаем токенизатор и модель
+    tokenizer_obj = AutoTokenizer.from_pretrained(MODEL_REPO)
+    model_obj = AutoModelForCausalLM.from_pretrained(MODEL_REPO)
+
+    # Определяем устройство (GPU, если доступен, иначе CPU)
+    device_obj = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model_obj.to(device_obj)
+
+    # Если pad_token не задан, ставим его равным eos_token
+    if tokenizer_obj.pad_token_id is None:
+        tokenizer_obj.add_special_tokens({"pad_token": tokenizer_obj.eos_token})
+        model_obj.resize_token_embeddings(len(tokenizer_obj))
+
+    # Передаём эти объекты в модуль chat
+    chat.tokenizer = tokenizer_obj
+    chat.model = model_obj
+    chat.device = device_obj
+
+    # ---------------- РЕГИСТРАЦИЯ ХЕНДЛЕРОВ ----------------
+
+    # 1) /start и /help
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
 
@@ -192,8 +224,16 @@ def main():
     application.add_handler(list_files_handler)
     application.add_handler(download_file_handler)
 
-    # 12) Универсальный /cancel (фоллбэк для всех ConversationHandler)
+    # 12) Универсальный /cancel (фолбэк для всех ConversationHandler)
     application.add_handler(CommandHandler("cancel", settings_handler.fallbacks[0].callback))
+
+    # ---------------- ХЕНДЛЕР “Свободного чата” через дообученную модель ----------------
+    # Обратите внимание: этот хендлер нужно регистрировать после всех
+    # других конкретных ConversationHandler’ов, чтобы он не блокировал
+    # команды (/summarize, /extract_deadlines, и т.д.).
+    application.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, chat.chat_handler)
+    )
 
     # После запуска приложения задаём список команд Telegram
     application.post_init = set_commands
