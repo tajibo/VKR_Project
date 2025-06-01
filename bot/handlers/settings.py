@@ -35,16 +35,13 @@ async def start_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     db = SessionLocal()
     try:
-        # Получаем или создаём запись user_settings для данного пользователя
         setting = db.query(UserSetting).filter(UserSetting.user_id == user_id).first()
         if not setting:
-            # Если настроек ещё нет — создаём со значениями по умолчанию
             setting = UserSetting(user_id=user_id)
             db.add(setting)
             db.commit()
             db.refresh(setting)
 
-        # Формируем текст с текущими значениями
         text = (
             "<b>Ваши текущие настройки:</b>\n\n"
             f"1️⃣ Язык: <code>{setting.preferred_language}</code>\n"
@@ -67,7 +64,6 @@ async def start_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     except Exception as e:
         db.rollback()
-        # Логируем ошибку
         err_db = SessionLocal()
         try:
             err_db.add(ErrorLog(
@@ -127,7 +123,6 @@ async def choice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
         return TYPING_FLASH
 
-    # Некорректный ввод
     await update.message.reply_text(
         "Пожалуйста, выберите вариант из клавиатуры (1–4) или введите «Отмена».",
         reply_markup=CHOICES_MARKUP,
@@ -137,13 +132,9 @@ async def choice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 @log_activity("set_language")
 async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """
-    Сохранение нового кода языка в UserSetting.
-    """
     user_id = update.effective_user.id
     lang_code = update.message.text.strip().lower()
 
-    # Проверяем корректность: два символа (ru/en)
     if len(lang_code) != 2 or not lang_code.isalpha():
         await update.message.reply_text(
             "❌ Некорректный формат. Введите двухбуквенный код языка (например, ru или en):"
@@ -186,9 +177,6 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
 @log_activity("set_summary_length")
 async def set_summary_length(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """
-    Сохранение нового значения default_summary_length.
-    """
     user_id = update.effective_user.id
     text = update.message.text.strip()
 
@@ -241,9 +229,6 @@ async def set_summary_length(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 @log_activity("set_deadline_notifications")
 async def set_deadline_notifications(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """
-    Включение/выключение уведомлений о дедлайнах.
-    """
     user_id = update.effective_user.id
     text = update.message.text.strip().lower()
 
@@ -292,9 +277,6 @@ async def set_deadline_notifications(update: Update, context: ContextTypes.DEFAU
 
 @log_activity("set_flashcard_notifications")
 async def set_flashcard_notifications(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """
-    Включение/выключение уведомлений о карточках.
-    """
     user_id = update.effective_user.id
     text = update.message.text.strip().lower()
 
@@ -351,8 +333,7 @@ async def cancel_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
     return ConversationHandler.END
 
-
-# Регистрируем ConversationHandler — экспортируем для main.py
+# ConversationHandler для /settings
 settings_handler = ConversationHandler(
     entry_points=[CommandHandler("settings", start_settings)],
     states={

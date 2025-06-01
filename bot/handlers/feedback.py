@@ -10,7 +10,6 @@ from bot.handlers.utils import log_activity
 async def request_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Отправляет Inline-клавиатуру с кнопками «👍 Полезно» и «👎 Не помогло».
-    Предполагается вызывать эту функцию непосредственно после того, как бот ответил пользователю.
     """
     keyboard = [
         [
@@ -19,31 +18,26 @@ async def request_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         ]
     ]
     markup = InlineKeyboardMarkup(keyboard)
-    # Если update.message изначально — это ответ бота, то делаем reply
     if update.message:
         await update.message.reply_text("Оцените, пожалуйста, полезность ответа:", reply_markup=markup)
     else:
-        # В остальных случаях просто отправляем новое сообщение
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Оцените, пожалуйста, полезность ответа:",
             reply_markup=markup
         )
 
-
 @log_activity("process_feedback")
 async def process_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
-    Обрабатывает нажатие на кнопку «👍» или «👎». 
-    Сохраняет рейтинг (1/0) и query_text (исходный запрос пользователя).
+    Обрабатывает нажатие на кнопку «👍» или «👎» и сохраняет отзыв в БД.
     """
     query = update.callback_query
-    await query.answer()  # чтобы убрать «часики» у кнопки
+    await query.answer()
 
     user_id_telegram = query.from_user.id
     rating = 1 if query.data == "like" else 0
 
-    # Получаем исходный текст запроса (если кнопка была прикреплена к reply-ответу)
     original_query_text = None
     if query.message and query.message.reply_to_message:
         original_query_text = query.message.reply_to_message.text
@@ -68,7 +62,6 @@ async def process_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     except Exception as e:
         db.rollback()
-        # Логируем ошибку
         err_db = SessionLocal()
         try:
             err_db.add(ErrorLog(
@@ -80,7 +73,6 @@ async def process_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         finally:
             err_db.close()
 
-        # Отправляем alert
         await query.answer("Не удалось сохранить отзыв. Попробуйте позже.", show_alert=True)
 
     finally:

@@ -11,7 +11,7 @@ from bot.handlers.utils import log_activity
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# Состояния
+# Состояния ConversationHandler
 WAIT_FOR_FILE, = range(1)
 
 @log_activity("upload_start")
@@ -30,7 +30,6 @@ async def receive_file(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             await update.message.reply_text("Сначала зарегистрируйтесь через /start.")
             return ConversationHandler.END
 
-        # Ожидаем, что пользователь прислал документ (Document)
         if not update.message.document:
             await update.message.reply_text("Пожалуйста, отправьте именно файл (не фото или текст).")
             return WAIT_FOR_FILE
@@ -39,12 +38,10 @@ async def receive_file(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         file_id = document.file_id
         file_name = document.file_name
 
-        # Скачиваем файл
         new_file = await context.bot.get_file(file_id)
         save_path = os.path.join(UPLOAD_DIR, file_name)
         await new_file.download_to_drive(save_path)
 
-        # Сохраняем в БД
         file_record = File(
             user_id=db_user.id,
             filename=file_name,
@@ -82,7 +79,7 @@ async def cancel_upload(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 @log_activity("list_files")
 async def list_files(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    /list_files — выводит список файлов пользователя с inline-кнопками для скачивания.
+    /list_files — выводит список файлов пользователя с кнопками для скачивания.
     """
     user_id_telegram = update.effective_user.id
     db = SessionLocal()
@@ -97,7 +94,6 @@ async def list_files(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("У вас нет загруженных файлов.")
             return
 
-        # Формируем inline-кнопки
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
         keyboard = []
         for f in files:
@@ -131,7 +127,7 @@ async def download_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     query = update.callback_query
     await query.answer()
-    data = query.data  # ожидаем формат "download_<id>"
+    data = query.data  # формат "download_<id>"
     user_id_telegram = query.from_user.id
     file_id = int(data.split("_", 1)[1])
 
@@ -147,7 +143,6 @@ async def download_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text("Файл не найден или у вас нет доступа к нему.")
             return
 
-        # Отправляем файл
         with open(file_record.file_path, "rb") as f:
             await context.bot.send_document(chat_id=query.message.chat_id, document=InputFile(f, filename=file_record.filename))
 
