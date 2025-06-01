@@ -21,7 +21,6 @@ from db.models import User, Role, UserSetting, ErrorLog
 import bot.handlers.settings as settings
 from bot.handlers.feedback import request_feedback, process_feedback
 from bot.handlers.stats import stats_command, stats_global_command
-from bot.handlers.summarize import summarize_handler
 from bot.handlers.files import upload_handler, list_files_handler, download_file_handler
 
 # Импорт модуля chat
@@ -189,30 +188,28 @@ def main():
 
     # ---------------- РЕГИСТРАЦИЯ ХЕНДЛЕРОВ ----------------
 
-    # 1) /start и /help
+    # 1) /start, /help (ваша логика)
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
 
     # 2) ConversationHandler для /settings
     application.add_handler(settings.settings_handler)
 
-    # 3) Обратная связь (Inline-кнопки)
-    application.add_handler(CallbackQueryHandler(process_feedback, pattern="^(like|dislike)$"))
-
-    # 4) Статистика
+    # 3) Статистика
     application.add_handler(CommandHandler("stats", stats_command))
     application.add_handler(CommandHandler("stats_global", stats_global_command))
 
-    # 5) Суммаризация текста
-    application.add_handler(summarize_handler)
-
-    # 6) Файловая система: загрузка и список файлов
+    # 4) Файловая система
     application.add_handler(upload_handler)
     application.add_handler(list_files_handler)
     application.add_handler(download_file_handler)
 
-    # 7) Универсальный /cancel (фолбэк)
+    # 5) Свободный чат
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat.chat_handler))
+
+    # Универсальный /cancel (у вас будет settings.settings_handler.fallbacks[0])
     application.add_handler(CommandHandler("cancel", settings.settings_handler.fallbacks[0].callback))
+
 
     # ---------------- ХЕНДЛЕР «Свободного чата» через модель ----------------
     application.add_handler(
