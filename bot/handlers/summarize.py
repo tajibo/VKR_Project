@@ -61,27 +61,22 @@ async def summarize_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         setting = db.query(UserSetting).filter(UserSetting.user_id == db_user.id).first()
         K = setting.default_summary_length if setting else 3
 
-        # Разбиваем на предложения
         sentences = nltk.sent_tokenize(input_text)
         if len(sentences) <= K:
             await update.message.reply_text("Текст слишком короткий для суммаризации. Вот оригинал:")
             await update.message.reply_text(input_text)
             return ConversationHandler.END
 
-        # Строим TF-IDF матрицу предложений
         vectorizer = TfidfVectorizer(stop_words="russian")
         X = vectorizer.fit_transform(sentences)
         sim_matrix = (X * X.T).toarray()
 
-        # Построение графа предложений
         nx_graph = nx.from_numpy_array(sim_matrix)
         scores = nx.pagerank(nx_graph)
 
-        # Сортируем по весу
         ranked_sentences = sorted(((scores[i], s) for i, s in enumerate(sentences)), reverse=True)
         top_sentences = [s for _, s in ranked_sentences[:K]]
 
-        # Формируем ответ в исходном порядке предложений
         final_sentences = []
         for sent in sentences:
             if sent in top_sentences:
@@ -90,7 +85,6 @@ async def summarize_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         summary = "\n".join(final_sentences)
         await update.message.reply_text("<b>Суммаризация:</b>\n" + summary, parse_mode="HTML")
 
-        # Логируем в UserActivity
         activity = UserActivity(
             user_id=db_user.id,
             query_text=input_text[:100],
@@ -126,8 +120,7 @@ async def cancel_summarize(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     await update.message.reply_text("Ок, отмена. Возвращаюсь в основное меню.")
     return ConversationHandler.END
 
-
-# Export ConversationHandler
+# ConversationHandler для /summarize
 summarize_handler = ConversationHandler(
     entry_points=[CommandHandler("summarize", summarize_start)],
     states={

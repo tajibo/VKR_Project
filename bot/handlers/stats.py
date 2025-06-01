@@ -26,7 +26,6 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Сначала зарегистрируйтесь через /start.")
             return
 
-        # Получаем статистику
         total_requests = db.query(func.count(UserActivity.id)).filter(UserActivity.user_id == db_user.id).scalar()
         avg_time = db.query(func.avg(UserActivity.response_time_ms)).filter(UserActivity.user_id == db_user.id).scalar()
 
@@ -53,7 +52,6 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         db.rollback()
-        # Логируем ошибку
         err_db = SessionLocal()
         try:
             err_db.add(ErrorLog(
@@ -84,7 +82,6 @@ async def stats_global_command(update: Update, context: ContextTypes.DEFAULT_TYP
             await update.message.reply_text("🚫 У вас нет доступа к этой команде.")
             return
 
-        # Топ-5 самых активных хендлеров по количеству запросов
         top_handlers = (
             db.query(UserActivity.handler_name, func.count(UserActivity.id).label("cnt"))
             .group_by(UserActivity.handler_name)
@@ -93,7 +90,6 @@ async def stats_global_command(update: Update, context: ContextTypes.DEFAULT_TYP
             .all()
         )
 
-        # Топ-5 самых медленных хендлеров по среднему времени ответа
         slow_handlers = (
             db.query(UserActivity.handler_name, func.avg(UserActivity.response_time_ms).label("avg_rt"))
             .group_by(UserActivity.handler_name)
@@ -118,8 +114,6 @@ async def stats_global_command(update: Update, context: ContextTypes.DEFAULT_TYP
 
         await update.message.reply_html(text)
 
-        # Дополнительно можно отправить график «число запросов по дням»
-        # Ниже приведён пример построения и отправки такого графика:
         dates_counts = (
             db.query(
                 func.date(UserActivity.timestamp).label("day"),
@@ -130,7 +124,6 @@ async def stats_global_command(update: Update, context: ContextTypes.DEFAULT_TYP
             .all()
         )
         if dates_counts:
-            # Разбиваем на списки
             days = [str(row.day) for row in dates_counts]
             counts = [row.cnt for row in dates_counts]
 

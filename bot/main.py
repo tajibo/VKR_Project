@@ -17,19 +17,14 @@ from telegram.ext import (
 from db.database import SessionLocal, engine, Base
 from db.models import User, Role, UserSetting, ErrorLog
 
-# Импорт всех необходимых хендлеров
-from bot.handlers.settings import settings_handler
+# Импорт всех необходимых (оставшихся) хендлеров
+import bot.handlers.settings as settings
 from bot.handlers.feedback import request_feedback, process_feedback
 from bot.handlers.stats import stats_command, stats_global_command
-from bot.handlers.intent import intent_handler
 from bot.handlers.summarize import summarize_handler
-from bot.handlers.sentiment import sentiment_handler
-from bot.handlers.topics import topics_handler
-from bot.handlers.extract_deadlines import extract_deadlines_handler
-from bot.handlers.generate_questions import generate_questions_handler
 from bot.handlers.files import upload_handler, list_files_handler, download_file_handler
 
-# Импорт нового модуля chat
+# Импорт модуля chat
 import bot.handlers.chat as chat
 
 from bot.handlers.utils import log_activity
@@ -114,13 +109,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Это интеллектуальный ассистент Витте.\n\n"
         "/start — регистрация и начало работы\n"
         "/help — справка по боту\n\n"
-        "/settings — настройки NLP-ассистента (язык, длина суммаризации, уведомления)\n"
-        "/intent <текст> — intent-классификация (распознаёт цель вашего запроса)\n"
-        "/summarize — суммаризация текста (бот попросит прислать текст)\n"
-        "/sentiment <текст> — анализ тональности (позитив/нейтрально/негативно)\n"
-        "/topics — выделение тем (бот попросит прислать несколько текстов)\n"
-        "/extract_deadlines — NER для дедлайнов (бот попросит текст)\n"
-        "/generate_questions — генерация вопросов (бот попросит текст)\n\n"
+        "/settings — настройки NLP-ассистента (длина суммаризации, уведомления)\n"
+        "/summarize — суммаризация текста (бот попросит прислать текст)\n\n"
         "/stats — ваша личная статистика использования бота\n"
         "/stats_global — общая статистика (только admin)\n"
         "/upload — загрузить файл\n"
@@ -138,12 +128,7 @@ async def set_commands(application):
         BotCommand("start", "Регистрация и начало работы"),
         BotCommand("help", "Справка по боту"),
         BotCommand("settings", "Настройки NLP-ассистента"),
-        BotCommand("intent", "Intent-классификация (/intent <текст>)"),
         BotCommand("summarize", "Суммаризация текста (бот попросит текст)"),
-        BotCommand("sentiment", "Анализ тональности (/sentiment <текст>)"),
-        BotCommand("topics", "Выделение тем (бот попросит тексты)"),
-        BotCommand("extract_deadlines", "NER для дедлайнов (бот попросит текст)"),
-        BotCommand("generate_questions", "Генерация вопросов (бот попросит текст)"),
         BotCommand("stats", "Ваша статистика использования"),
         BotCommand("stats_global", "Общая статистика (только admin)"),
         BotCommand("upload", "Загрузить файл"),
@@ -155,7 +140,7 @@ async def set_commands(application):
 
 # ---------------- Точка входа ----------------
 def main():
-    # Жёстко «зашитый» токен Telegram (оставляем, если хотите так)
+    # Токен Telegram
     TOKEN = "7542036376:AAEeWEqZUfUTboVJhw_ASZDDomMsRiwrVQA"
     if not TOKEN:
         logger.error("Токен Telegram не задан.")
@@ -164,7 +149,7 @@ def main():
     # ---------------- Инициализация приложения ----------------
     application = ApplicationBuilder().token(TOKEN).build()
 
-    # ---------------- ПОДГРУЗКА ДОOБУЧЕННОЙ МОДЕЛИ ИЗ HUGGING FACE HUB ----------------
+    # ---------------- ПОДГРУЗКА ДОOБУЧЕННОЙ МОДЕЛИ ЧАТА ----------------
     MODEL_REPO = "Dilshodbek11/ruDialoGPT-finetuned"
 
     from dotenv import load_dotenv
@@ -188,7 +173,7 @@ def main():
         use_auth_token=HUGGINGFACE_TOKEN
     )
 
-    # ---------------- Определяем устройство (GPU, если доступен, иначе CPU) ----------------
+    # ---------------- Определяем устройство ----------------
     device_obj = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model_obj.to(device_obj)
 
@@ -208,8 +193,8 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
 
-    # 2) ConversationHandler для /settings (NLP-настройки)
-    application.add_handler(settings_handler)
+    # 2) ConversationHandler для /settings
+    application.add_handler(settings.settings_handler)
 
     # 3) Обратная связь (Inline-кнопки)
     application.add_handler(CallbackQueryHandler(process_feedback, pattern="^(like|dislike)$"))
@@ -218,36 +203,18 @@ def main():
     application.add_handler(CommandHandler("stats", stats_command))
     application.add_handler(CommandHandler("stats_global", stats_global_command))
 
-    # 5) Intent-классификация
-    application.add_handler(intent_handler)
-
-    # 6) Суммаризация текста
+    # 5) Суммаризация текста
     application.add_handler(summarize_handler)
 
-    # 7) Анализ тональности
-    application.add_handler(sentiment_handler)
-
-    # 8) Выделение тем (Topic Modeling)
-    application.add_handler(topics_handler)
-
-    # 9) Извлечение дедлайнов (NER)
-    application.add_handler(extract_deadlines_handler)
-
-    # 10) Генерация вопросов
-    application.add_handler(generate_questions_handler)
-
-    # 11) Файловая система: загрузка и список файлов
+    # 6) Файловая система: загрузка и список файлов
     application.add_handler(upload_handler)
     application.add_handler(list_files_handler)
     application.add_handler(download_file_handler)
 
-    # 12) Универсальный /cancel (фолбэк для всех ConversationHandler)
-    application.add_handler(CommandHandler("cancel", settings_handler.fallbacks[0].callback))
+    # 7) Универсальный /cancel (фолбэк)
+    application.add_handler(CommandHandler("cancel", settings.settings_handler.fallbacks[0].callback))
 
-    # ---------------- ХЕНДЛЕР “Свободного чата” через дообученную модель ----------------
-    # Обратите внимание: этот хендлер нужно регистрировать после всех
-    # других конкретных ConversationHandler’ов, чтобы он не блокировал
-    # команды (/summarize, /extract_deadlines, и т.д.).
+    # ---------------- ХЕНДЛЕР «Свободного чата» через модель ----------------
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, chat.chat_handler)
     )
