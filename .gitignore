@@ -5,11 +5,12 @@
 __pycache__/
 *.py[cod]
 *.pyo
-
+.pyc
 # IDE-config
 .vscode/
 .idea/
-
+# Игнорируем файл с токеном
+.env
 # Логи, временные файлы и кеши
 *.log
 *.sqlite3

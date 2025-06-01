@@ -155,32 +155,49 @@ async def set_commands(application):
 
 # ---------------- Точка входа ----------------
 def main():
+    # Жёстко «зашитый» токен Telegram (оставляем, если хотите так)
     TOKEN = "7542036376:AAEeWEqZUfUTboVJhw_ASZDDomMsRiwrVQA"
     if not TOKEN:
-        logger.error("Токен не задан.")
+        logger.error("Токен Telegram не задан.")
         return
 
     # ---------------- Инициализация приложения ----------------
     application = ApplicationBuilder().token(TOKEN).build()
 
     # ---------------- ПОДГРУЗКА ДОOБУЧЕННОЙ МОДЕЛИ ИЗ HUGGING FACE HUB ----------------
-    # Замените <ваш_username> на ваш реальный никнейм на Hugging Face
-    MODEL_REPO = "ваш_username/ruDialoGPT-finetuned"
+    MODEL_REPO = "Dilshodbek11/ruDialoGPT-finetuned"
 
-    # Загружаем токенизатор и модель
-    tokenizer_obj = AutoTokenizer.from_pretrained(MODEL_REPO)
-    model_obj = AutoModelForCausalLM.from_pretrained(MODEL_REPO)
+    from dotenv import load_dotenv
+    import os
 
-    # Определяем устройство (GPU, если доступен, иначе CPU)
+    # Загружаем переменные из .env
+    load_dotenv()
+
+    # Читаем токен Hugging Face
+    HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
+    if not HUGGINGFACE_TOKEN:
+        raise RuntimeError("Не задана переменная HUGGINGFACE_TOKEN в окружении")
+
+    # Загружаем токенизатор и модель с помощью HUGGINGFACE_TOKEN
+    tokenizer_obj = AutoTokenizer.from_pretrained(
+        MODEL_REPO,
+        use_auth_token=HUGGINGFACE_TOKEN
+    )
+    model_obj = AutoModelForCausalLM.from_pretrained(
+        MODEL_REPO,
+        use_auth_token=HUGGINGFACE_TOKEN
+    )
+
+    # ---------------- Определяем устройство (GPU, если доступен, иначе CPU) ----------------
     device_obj = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model_obj.to(device_obj)
 
-    # Если pad_token не задан, ставим его равным eos_token
+    # ---------------- Если pad_token не задан, ставим его равным eos_token ----------------
     if tokenizer_obj.pad_token_id is None:
         tokenizer_obj.add_special_tokens({"pad_token": tokenizer_obj.eos_token})
         model_obj.resize_token_embeddings(len(tokenizer_obj))
 
-    # Передаём эти объекты в модуль chat
+    # ---------------- Передаём эти объекты в модуль chat ----------------
     chat.tokenizer = tokenizer_obj
     chat.model = model_obj
     chat.device = device_obj
