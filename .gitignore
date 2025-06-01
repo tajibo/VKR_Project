@@ -15,10 +15,6 @@ __pycache__/
 *.log
 *.sqlite3
 .env
-VKR_Project.git/
 
 # MacOS
 .DS_Store
-
-# Загрузки
-uploads/
