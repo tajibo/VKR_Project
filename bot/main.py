@@ -22,9 +22,27 @@ import bot.handlers.settings as settings
 from bot.handlers.feedback import request_feedback, process_feedback
 from bot.handlers.stats import stats_command, stats_global_command
 from bot.handlers.files import upload_handler, list_files_handler, download_file_handler
-
+import bot.handlers.auth as auth
+from bot.handlers.model_artifacts import download_model_handler
 # Импорт модуля chat
 import bot.handlers.chat as chat
+
+from bot.handlers.auth import register_handler, login_handler, logout_command
+import bot.handlers.auth_utils as auth_utils
+
+# Импорт панели администратора:
+from bot.handlers.admin import admin_panel_handler, admin_callback_handler, set_role_handler
+
+# Импорт панели менеджера:
+from bot.handlers.manager import manager_panel_handler, manager_callback_handler
+
+# Импорт личного кабинета:
+from bot.handlers.dashboard import dashboard_handler
+
+# Импорт загрузки артефактов модели:
+from bot.handlers.model_artifacts import download_model_handler
+
+from bot.handlers.utils import log_activity
 
 from bot.handlers.utils import log_activity
 
@@ -147,7 +165,7 @@ def main():
 
     # ---------------- Инициализация приложения ----------------
     application = ApplicationBuilder().token(TOKEN).build()
-
+    application.add_handler(CommandHandler("download_model", download_model_handler))
     # ---------------- ПОДГРУЗКА ДОOБУЧЕННОЙ МОДЕЛИ ЧАТА ----------------
     MODEL_REPO = "Dilshodbek11/ruDialoGPT-finetuned"
 
@@ -187,12 +205,16 @@ def main():
     chat.device = device_obj
 
     # ---------------- РЕГИСТРАЦИЯ ХЕНДЛЕРОВ ----------------
+     # Регистрация /register, /login, /logout
+    application.add_handler(register_handler)
+    application.add_handler(login_handler)
+    application.add_handler(CommandHandler("logout", logout_command))
 
-    # 1) /start, /help (ваша логика)
+    # 1) /start, /help
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
 
-    # 2) ConversationHandler для /settings
+    # 2) Настройки
     application.add_handler(settings.settings_handler)
 
     # 3) Статистика
@@ -204,12 +226,29 @@ def main():
     application.add_handler(list_files_handler)
     application.add_handler(download_file_handler)
 
-    # 5) Свободный чат
+    # 5) Панель администратора
+    application.add_handler(admin_panel_handler)
+    application.add_handler(admin_callback_handler)
+    application.add_handler(set_role_handler)
+
+    # 6) Панель менеджера
+    application.add_handler(manager_panel_handler)
+    application.add_handler(manager_callback_handler)
+
+    # 7) Личный кабинет
+    application.add_handler(dashboard_handler)  # уже CommandHandler внутри модуля
+
+    # 8) Загрузка артефактов модели  — дублируется, но если нужен дважды, оставьте:
+    application.add_handler(CommandHandler("download_model", download_model_handler))
+
+    # 9) Свободный чат (все текстовые сообщения)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat.chat_handler))
 
-    # Универсальный /cancel (у вас будет settings.settings_handler.fallbacks[0])
+    # Универсальный /cancel для ConversationHandler‐ов
     application.add_handler(CommandHandler("cancel", settings.settings_handler.fallbacks[0].callback))
 
+    # После запуска приложения задаём список команд Telegram
+    application.post_init = set_commands
 
     # ---------------- ХЕНДЛЕР «Свободного чата» через модель ----------------
     application.add_handler(

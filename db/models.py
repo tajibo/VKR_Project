@@ -17,37 +17,49 @@ from db.database import Base
 
 class Role(Base):
     __tablename__ = "roles"
-    id = Column(Integer, primary_key=True)
+    id   = Column(Integer, primary_key=True)
     name = Column(String(50), unique=True, nullable=False)
     users = relationship("User", back_populates="role")
 
 class User(Base):
     __tablename__ = "users"
-    id = Column(Integer, primary_key=True)
-    telegram_id = Column(Integer, unique=True, nullable=False)
-    username = Column(String(255))
-    role_id = Column(Integer, ForeignKey("roles.id"))
+    id            = Column(Integer, primary_key=True)
+    telegram_id   = Column(Integer, unique=True, nullable=True)  # можно null, если регистрируются не через Telegram
+    username      = Column(String(255), unique=True, nullable=False)  # Логин (email или псевдоним)
+    password_hash = Column(String(255), nullable=False)  # Хэш пароля
+    role_id       = Column(Integer, ForeignKey("roles.id"), nullable=False)
     registered_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    role = relationship("Role", back_populates="users")
+    role     = relationship("Role", back_populates="users")
     settings = relationship("UserSetting", back_populates="user", uselist=False)
     pomodoros = relationship("PomodoroSession", back_populates="user")
     flashcards = relationship("Flashcard", back_populates="user")
     reflections = relationship("Reflection", back_populates="user")
-    logs = relationship("Log", back_populates="user")
-    summaries = relationship("Summary", back_populates="user")
-    deadlines = relationship("Deadline", back_populates="user")
-    files = relationship("File", back_populates="user")
+    logs       = relationship("Log", back_populates="user")
+    summaries  = relationship("Summary", back_populates="user")
+    deadlines  = relationship("Deadline", back_populates="user")
+    files      = relationship("File", back_populates="user")
+    activity     = relationship("UserActivity", back_populates="user")
+    error_logs   = relationship("ErrorLog", back_populates="user")
+    feedbacks    = relationship("UserFeedback", back_populates="user")
 
-    activity = relationship("UserActivity", back_populates="user")
-    error_logs = relationship("ErrorLog", back_populates="user")
-    feedbacks = relationship("UserFeedback", back_populates="user")
+
+class UserActivity(Base):
+    __tablename__ = "user_activity"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # стала nullable=True
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    query_text = Column(Text, nullable=True)
+    intent_label = Column(String(100), nullable=True)
+    handler_name = Column(String(100), nullable=True)
+    response_time_ms = Column(Integer, nullable=True)
+    user = relationship("User", back_populates="activity")
 
 class UserSetting(Base):
     __tablename__ = "user_settings"
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
-
+    
     pomodoro_duration = Column(Integer, default=25)
     break_duration = Column(Integer, default=5)
     notifications_enabled = Column(Boolean, default=True)
@@ -137,18 +149,6 @@ class File(Base):
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     user = relationship("User", back_populates="files")
-
-class UserActivity(Base):
-    __tablename__ = "user_activity"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    query_text = Column(Text, nullable=True)
-    intent_label = Column(String(100), nullable=True)
-    handler_name = Column(String(100), nullable=True)
-    response_time_ms = Column(Integer, nullable=True)
-
-    user = relationship("User", back_populates="activity")
 
 class ModelMetrics(Base):
     __tablename__ = "model_metrics"
