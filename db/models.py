@@ -1,18 +1,6 @@
 # db/models.py
-
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    Boolean,
-    DateTime,
-    ForeignKey,
-    Text,
-    Float,
-    func,
-)
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, func
 from sqlalchemy.orm import relationship
-
 from db.database import Base
 
 class Role(Base):
@@ -24,46 +12,43 @@ class Role(Base):
 class User(Base):
     __tablename__ = "users"
     id            = Column(Integer, primary_key=True)
-    telegram_id   = Column(Integer, unique=True, nullable=True)  # можно null, если регистрируются не через Telegram
-    username      = Column(String(255), unique=True, nullable=False)  # Логин (email или псевдоним)
-    password_hash = Column(String(255), nullable=False)  # Хэш пароля
+    telegram_id   = Column(Integer, unique=True, nullable=True)
+    username      = Column(String(255), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
     role_id       = Column(Integer, ForeignKey("roles.id"), nullable=False)
     registered_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    role     = relationship("Role", back_populates="users")
-    settings = relationship("UserSetting", back_populates="user", uselist=False)
-    pomodoros = relationship("PomodoroSession", back_populates="user")
-    flashcards = relationship("Flashcard", back_populates="user")
-    reflections = relationship("Reflection", back_populates="user")
-    logs       = relationship("Log", back_populates="user")
-    summaries  = relationship("Summary", back_populates="user")
-    deadlines  = relationship("Deadline", back_populates="user")
-    files      = relationship("File", back_populates="user")
+    role         = relationship("Role", back_populates="users")
+    settings     = relationship("UserSetting", back_populates="user", uselist=False)
+    files        = relationship("File", back_populates="user")
     activity     = relationship("UserActivity", back_populates="user")
     error_logs   = relationship("ErrorLog", back_populates="user")
     feedbacks    = relationship("UserFeedback", back_populates="user")
-
+    pomodoros    = relationship("PomodoroSession", back_populates="user")
+    flashcards   = relationship("Flashcard", back_populates="user")
+    reflections  = relationship("Reflection", back_populates="user")
+    summaries    = relationship("Summary", back_populates="user")
+    deadlines    = relationship("Deadline", back_populates="user")
 
 class UserActivity(Base):
     __tablename__ = "user_activity"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # стала nullable=True
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     query_text = Column(Text, nullable=True)
     intent_label = Column(String(100), nullable=True)
     handler_name = Column(String(100), nullable=True)
     response_time_ms = Column(Integer, nullable=True)
+
     user = relationship("User", back_populates="activity")
 
 class UserSetting(Base):
     __tablename__ = "user_settings"
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
-    
     pomodoro_duration = Column(Integer, default=25)
     break_duration = Column(Integer, default=5)
     notifications_enabled = Column(Boolean, default=True)
-
     preferred_language = Column(String(2), default="ru", nullable=False)
     default_summary_length = Column(Integer, default=3, nullable=False)
     deadline_notifications = Column(Boolean, default=True, nullable=False)
@@ -110,15 +95,6 @@ class Reflection(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     user = relationship("User", back_populates="reflections")
-
-class Log(Base):
-    __tablename__ = "logs"
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    action = Column(String(255), nullable=False)
-    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-
-    user = relationship("User", back_populates="logs")
 
 class Summary(Base):
     __tablename__ = "summaries"
